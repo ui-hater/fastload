@@ -1,0 +1,11 @@
+[package]
+name = "fastload"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+ureq = "3.4.2"
+wxdragon = "0.9.23"
+
+[build-dependencies]
+embed-manifest = "1.5.1"
