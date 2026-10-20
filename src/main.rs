@@ -1,3 +1,5 @@
+mod torrent;
+
 use std::fs::File;
 use std::io::{Read, Write};
 use std::thread;
@@ -31,7 +33,7 @@ fn build_ui() -> (Frame, Ui) {
     let url_input = TextCtrl::builder(&panel).build();
     let download_btn = Button::builder(&panel).with_label("Download").build();
     let gauge = Gauge::builder(&panel).with_range(100).build();
-    let status = StaticText::builder(&panel).with_label("Link einfügen").build();
+    let status = StaticText::builder(&panel).with_label("Link oder Magnet-Link einfügen").build();
 
     let row = BoxSizer::builder(Orientation::Horizontal).build();
     row.add(&url_input, 1, SizerFlag::Expand | SizerFlag::Right, 5);
@@ -56,16 +58,39 @@ fn on_download_clicked(frame: &Frame, ui: Ui) {
         ui.status.set_label("Bitte einen Link eingeben");
         return;
     }
+    if torrent::is_torrent(&url) {
+        start_torrent_download(frame, ui, url);
+    } else {
+        start_http_download(frame, ui, url);
+    }
+}
+
+fn start_http_download(frame: &Frame, ui: Ui, url: String) {
     let Some(path) = ask_save_path(frame, &file_name_from_url(&url)) else {
         return;
     };
-    ui.download_btn.enable(false);
-    ui.gauge.set_value(0);
-    ui.status.set_label("Lade herunter...");
+    start_download(ui);
     thread::spawn(move || {
         let result = download(&url, &path, |done, total| report_progress(ui, done, total));
         report_finished(ui, result);
     });
+}
+
+fn start_torrent_download(frame: &Frame, ui: Ui, url: String) {
+    let Some(dir) = ask_save_dir(frame) else {
+        return;
+    };
+    start_download(ui);
+    thread::spawn(move || {
+        let result = torrent::download(&url, &dir, |done, total| report_progress(ui, done, total));
+        report_finished(ui, result);
+    });
+}
+
+fn start_download(ui: Ui) {
+    ui.download_btn.enable(false);
+    ui.gauge.set_value(0);
+    ui.status.set_label("Lade herunter...");
 }
 
 fn ask_save_path(parent: &Frame, default_name: &str) -> Option<String> {
@@ -75,6 +100,14 @@ fn ask_save_path(parent: &Frame, default_name: &str) -> Option<String> {
         .with_wildcard("Alle Dateien (*.*)|*.*")
         .with_style(FileDialogStyle::Save | FileDialogStyle::OverwritePrompt)
         .build();
+    if dialog.show_modal() != ID_OK {
+        return None;
+    }
+    dialog.get_path()
+}
+
+fn ask_save_dir(parent: &Frame) -> Option<String> {
+    let dialog = DirDialog::builder(parent, "Zielordner wählen", "").build();
     if dialog.show_modal() != ID_OK {
         return None;
     }
