@@ -7,6 +7,7 @@ use std::thread;
 
 use wxdragon::prelude::*;
 use wxdragon::translations::translate;
+use wxdragon::translations::{Locale, Translations, add_catalog_lookup_path_prefix};
 
 #[derive(Clone, Copy)]
 struct Ui {
@@ -16,8 +17,17 @@ struct Ui {
     status: StaticText,
 }
 
+fn setup_translations() {
+    add_catalog_lookup_path_prefix(".\\locale");
+    let tr = Translations::new();
+    tr.set_language(Locale::get_system_language());
+    tr.add_catalog("fastload");
+    tr.add_std_catalog();
+    Translations::set_global(tr);
+}
 fn main() {
     let _ = wxdragon::main(|_| {
+        setup_translations();
         let (frame, ui) = build_ui();
         bind_events(frame, ui);
         frame.show(true);
@@ -34,7 +44,9 @@ fn build_ui() -> (Frame, Ui) {
 
     let url_input = TextCtrl::builder(&panel).build();
     url_input.set_accessibility_label(&translate("Link to file or torrent"));
-    let download_btn = Button::builder(&panel).with_label(&translate("Downloa&d")).build();
+    let download_btn = Button::builder(&panel)
+        .with_label(&translate("Downloa&d"))
+        .build();
     let gauge = Gauge::builder(&panel).with_range(100).build();
     let status = StaticText::builder(&panel)
         .with_label(&translate("paste link"))
@@ -126,7 +138,8 @@ fn ask_save_path(parent: &Frame, default_name: &str) -> Option<String> {
 }
 
 fn ask_save_dir(parent: &Frame) -> Option<String> {
-    let dialog = DirDialog::builder(parent, &translate("Please select destination folder"), "").build();
+    let dialog =
+        DirDialog::builder(parent, &translate("Please select destination folder"), "").build();
     if dialog.show_modal() != ID_OK {
         return None;
     }
@@ -186,11 +199,12 @@ fn report_finished(ui: Ui, result: Result<u64, String>) {
             Ok(bytes) => {
                 ui.gauge.set_value(100);
                 ui.status
-                    .set_label(&format!(&translate("Done: {}", format_size(bytes)));
+                    .set_label(&translate("Done: {}").replace("{}", &format_size(bytes)));
             }
             Err(e) => {
                 ui.gauge.set_value(0);
-                ui.status.set_label(&format!(&translate("Error: {e}")));
+                ui.status
+                    .set_label(&translate("Error: {}").replace("{}", &e));
             }
         }
     }));
