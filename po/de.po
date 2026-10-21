@@ -1,0 +1,59 @@
+# German translations for PACKAGE fastload
+# German translation for PACKAGE.
+# Copyright (C) 2026 THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# Automatically generated, 2026.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-10-21 17:04+0200\n"
+"PO-Revision-Date: 2026-10-21 17:04+0200\n"
+"Last-Translator: Automatically generated\n"
+"Language-Team: none\n"
+"Language: de\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=CP1252\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: .\src\main.rs:36
+msgid "Link to file or torrent"
+msgstr "Link zur Datei oder Torrent"
+
+#: .\src\main.rs:37
+msgid "Downloa&d"
+msgstr "&Herunterladen"
+
+#: .\src\main.rs:40
+msgid "paste link"
+msgstr "Link einfügen"
+
+#: .\src\main.rs:77
+msgid "please paste a link"
+msgstr "Bitte füge einen Link ein."
+
+#: .\src\main.rs:112
+msgid "downloading..."
+msgstr "Lade herunter..."
+
+#: .\src\main.rs:117
+msgid "save as"
+msgstr "speichern unter"
+
+#: .\src\main.rs:119
+msgid "All files (*.*)|*.*"
+msgstr "Alle Dateien (*.*)|*.*"
+
+#: .\src\main.rs:129
+msgid "Please select destination folder"
+msgstr "Bitte Zielordner wählen"
+
+#: .\src\main.rs:189
+msgid "Done: {}"
+msgstr "Fertig: {}"
+
+#: .\src\main.rs:193
+msgid "Error: {e}"
+msgstr "Fehler: {e}"
