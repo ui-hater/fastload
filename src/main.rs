@@ -32,7 +32,7 @@ fn build_ui() -> (Frame, Ui) {
     let panel = Panel::builder(&frame).build();
 
     let url_input = TextCtrl::builder(&panel).build();
-    let download_btn = Button::builder(&panel).with_label("Download").build();
+    let download_btn = Button::builder(&panel).with_label("Downloa&d").build();
     let gauge = Gauge::builder(&panel).with_range(100).build();
     let status = StaticText::builder(&panel).with_label("Link oder Magnet-Link einfügen").build();
 
