@@ -2,7 +2,10 @@ use embed_manifest::manifest::{ActiveCodePage, DpiAwareness, Setting, SupportedO
 use embed_manifest::{embed_manifest, new_manifest};
 
 fn main() {
-    if std::env::var("TARGET").unwrap_or_default().contains("windows") {
+    if std::env::var("TARGET")
+        .unwrap_or_default()
+        .contains("windows")
+    {
         let manifest = new_manifest("fastload")
             .supported_os(Windows7..=Windows10)
             .active_code_page(ActiveCodePage::Utf8)

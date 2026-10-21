@@ -6,16 +6,31 @@ use librqbit::{AddTorrent, AddTorrentOptions, ManagedTorrent, Session};
 
 pub fn is_torrent(input: &str) -> bool {
     let input = input.to_lowercase();
-    input.starts_with("magnet:") || input.split(['?', '#']).next().unwrap_or("").ends_with(".torrent")
+    input.starts_with("magnet:")
+        || input
+            .split(['?', '#'])
+            .next()
+            .unwrap_or("")
+            .ends_with(".torrent")
 }
 
-pub fn download(input: &str, dir: &str, on_progress: impl Fn(u64, Option<u64>)) -> Result<u64, String> {
+pub fn download(
+    input: &str,
+    dir: &str,
+    on_progress: impl Fn(u64, Option<u64>),
+) -> Result<u64, String> {
     let runtime = tokio::runtime::Runtime::new().map_err(|e| e.to_string())?;
     runtime.block_on(run(input, dir, on_progress))
 }
 
-async fn run(input: &str, dir: &str, on_progress: impl Fn(u64, Option<u64>)) -> Result<u64, String> {
-    let session = Session::new(PathBuf::from(dir)).await.map_err(|e| e.to_string())?;
+async fn run(
+    input: &str,
+    dir: &str,
+    on_progress: impl Fn(u64, Option<u64>),
+) -> Result<u64, String> {
+    let session = Session::new(PathBuf::from(dir))
+        .await
+        .map_err(|e| e.to_string())?;
     let handle = add_torrent(&session, input).await?;
     let result = wait_with_progress(&handle, on_progress).await;
     session.stop().await;
@@ -24,7 +39,10 @@ async fn run(input: &str, dir: &str, on_progress: impl Fn(u64, Option<u64>)) -> 
 
 async fn add_torrent(session: &Arc<Session>, input: &str) -> Result<Arc<ManagedTorrent>, String> {
     let torrent = AddTorrent::from_cli_argument(input).map_err(|e| e.to_string())?;
-    let options = AddTorrentOptions { overwrite: true, ..Default::default() };
+    let options = AddTorrentOptions {
+        overwrite: true,
+        ..Default::default()
+    };
     session
         .add_torrent(torrent, Some(options))
         .await

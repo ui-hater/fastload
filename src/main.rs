@@ -32,10 +32,12 @@ fn build_ui() -> (Frame, Ui) {
     let panel = Panel::builder(&frame).build();
 
     let url_input = TextCtrl::builder(&panel).build();
-	url_input.set_accessibility_label("Link zu Datei / Torrent");
+    url_input.set_accessibility_label("Link zu Datei / Torrent");
     let download_btn = Button::builder(&panel).with_label("Downloa&d").build();
     let gauge = Gauge::builder(&panel).with_range(100).build();
-    let status = StaticText::builder(&panel).with_label("Link oder Magnet-Link einfügen").build();
+    let status = StaticText::builder(&panel)
+        .with_label("Link oder Magnet-Link einfügen")
+        .build();
 
     let row = BoxSizer::builder(Orientation::Horizontal).build();
     row.add(&url_input, 1, SizerFlag::Expand | SizerFlag::Right, 5);
@@ -43,15 +45,29 @@ fn build_ui() -> (Frame, Ui) {
 
     let col = BoxSizer::builder(Orientation::Vertical).build();
     col.add_sizer(&row, 0, SizerFlag::Expand | SizerFlag::All, 10);
-    col.add(&gauge, 0, SizerFlag::Expand | SizerFlag::Left | SizerFlag::Right, 10);
+    col.add(
+        &gauge,
+        0,
+        SizerFlag::Expand | SizerFlag::Left | SizerFlag::Right,
+        10,
+    );
     col.add(&status, 0, SizerFlag::Expand | SizerFlag::All, 10);
     panel.set_sizer(col, true);
 
-    (frame, Ui { url_input, download_btn, gauge, status })
+    (
+        frame,
+        Ui {
+            url_input,
+            download_btn,
+            gauge,
+            status,
+        },
+    )
 }
 
 fn bind_events(frame: Frame, ui: Ui) {
-    ui.download_btn.on_click(move |_| on_download_clicked(&frame, ui));
+    ui.download_btn
+        .on_click(move |_| on_download_clicked(&frame, ui));
 }
 
 fn on_download_clicked(frame: &Frame, ui: Ui) {
@@ -152,14 +168,13 @@ fn copy_with_progress(
 }
 
 fn report_progress(ui: Ui, done: u64, total: Option<u64>) {
-    wxdragon::call_after(Box::new(move || {
-        match total {
-            Some(t) if t > 0 => {
-                ui.gauge.set_value((done * 100 / t) as i32);
-                ui.status.set_label(&format!("{} / {}", format_size(done), format_size(t)));
-            }
-            _ => ui.status.set_label(&format_size(done)),
+    wxdragon::call_after(Box::new(move || match total {
+        Some(t) if t > 0 => {
+            ui.gauge.set_value((done * 100 / t) as i32);
+            ui.status
+                .set_label(&format!("{} / {}", format_size(done), format_size(t)));
         }
+        _ => ui.status.set_label(&format_size(done)),
     }));
 }
 
@@ -169,7 +184,8 @@ fn report_finished(ui: Ui, result: Result<u64, String>) {
         match result {
             Ok(bytes) => {
                 ui.gauge.set_value(100);
-                ui.status.set_label(&format!("Fertig: {}", format_size(bytes)));
+                ui.status
+                    .set_label(&format!("Fertig: {}", format_size(bytes)));
             }
             Err(e) => {
                 ui.gauge.set_value(0);
