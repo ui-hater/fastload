@@ -6,6 +6,7 @@ use std::io::{Read, Write};
 use std::thread;
 
 use wxdragon::prelude::*;
+use wxdragon::translations::translate;
 
 #[derive(Clone, Copy)]
 struct Ui {
@@ -32,11 +33,11 @@ fn build_ui() -> (Frame, Ui) {
     let panel = Panel::builder(&frame).build();
 
     let url_input = TextCtrl::builder(&panel).build();
-    url_input.set_accessibility_label("Link zu Datei / Torrent");
-    let download_btn = Button::builder(&panel).with_label("Downloa&d").build();
+    url_input.set_accessibility_label(&translate("Link to file or torrent"));
+    let download_btn = Button::builder(&panel).with_label(&translate("Downloa&d")).build();
     let gauge = Gauge::builder(&panel).with_range(100).build();
     let status = StaticText::builder(&panel)
-        .with_label("Link oder Magnet-Link einfügen")
+        .with_label(&translate("paste link"))
         .build();
 
     let row = BoxSizer::builder(Orientation::Horizontal).build();
@@ -73,7 +74,7 @@ fn bind_events(frame: Frame, ui: Ui) {
 fn on_download_clicked(frame: &Frame, ui: Ui) {
     let url = ui.url_input.get_value().trim().to_string();
     if url.is_empty() {
-        ui.status.set_label("Bitte einen Link eingeben");
+        ui.status.set_label(&translate("please paste a link"));
         return;
     }
     if torrent::is_torrent(&url) {
@@ -108,14 +109,14 @@ fn start_torrent_download(frame: &Frame, ui: Ui, url: String) {
 fn start_download(ui: Ui) {
     ui.download_btn.enable(false);
     ui.gauge.set_value(0);
-    ui.status.set_label("Lade herunter...");
+    ui.status.set_label(&translate("downloading..."));
 }
 
 fn ask_save_path(parent: &Frame, default_name: &str) -> Option<String> {
     let dialog = FileDialog::builder(parent)
-        .with_message("Speichern unter")
+        .with_message(&translate("save as"))
         .with_default_file(default_name)
-        .with_wildcard("Alle Dateien (*.*)|*.*")
+        .with_wildcard(&translate("All files (*.*)|*.*"))
         .with_style(FileDialogStyle::Save | FileDialogStyle::OverwritePrompt)
         .build();
     if dialog.show_modal() != ID_OK {
@@ -125,7 +126,7 @@ fn ask_save_path(parent: &Frame, default_name: &str) -> Option<String> {
 }
 
 fn ask_save_dir(parent: &Frame) -> Option<String> {
-    let dialog = DirDialog::builder(parent, "Zielordner wählen", "").build();
+    let dialog = DirDialog::builder(parent, &translate("Please select destination folder"), "").build();
     if dialog.show_modal() != ID_OK {
         return None;
     }
@@ -185,11 +186,11 @@ fn report_finished(ui: Ui, result: Result<u64, String>) {
             Ok(bytes) => {
                 ui.gauge.set_value(100);
                 ui.status
-                    .set_label(&format!("Fertig: {}", format_size(bytes)));
+                    .set_label(&format!(&translate("Done: {}", format_size(bytes)));
             }
             Err(e) => {
                 ui.gauge.set_value(0);
-                ui.status.set_label(&format!("Fehler: {e}"));
+                ui.status.set_label(&format!(&translate("Error: {e}")));
             }
         }
     }));
