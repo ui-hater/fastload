@@ -23,7 +23,17 @@ cargo run
 
 Der Linker gibt beim Bauen eine Meldung „Bibliothek … und Objekt … werden erstellt“ aus – die ist harmlos.
 
-Die Übersetzungen werden zur Laufzeit aus `.\locale` relativ zum Arbeitsverzeichnis geladen.
+Die Übersetzungen werden zur Laufzeit aus `.\locale` relativ zum Arbeitsverzeichnis geladen. Wer `fastload.exe` weitergibt, muss deshalb den Ordner `locale` mitliefern – er gehört neben die `.exe`:
+
+```
+fastload.exe
+locale\
+  de\
+    LC_MESSAGES\
+      fastload.mo
+```
+
+Fehlt der Ordner, startet das Programm trotzdem, zeigt die Oberfläche aber auf Englisch an.
 
 ## Installer
 
