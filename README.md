@@ -35,15 +35,6 @@ locale\
 
 Fehlt der Ordner, startet das Programm trotzdem, zeigt die Oberfläche aber auf Englisch an.
 
-## Installer
-
-Unter `wix/` liegt eine Vorlage für [`cargo wix`](https://github.com/volks73/cargo-wix):
-
-```sh
-cargo install cargo-wix
-cargo wix
-```
-
 ## Projektstruktur
 
 | Pfad             | Inhalt                                                       |
@@ -52,7 +43,6 @@ cargo wix
 | `src/torrent.rs` | Torrent-Download mit librqbit                                |
 | `build.rs`       | Bettet das Windows-Manifest ein (DPI, UTF-8, lange Pfade)    |
 | `po/`, `locale/` | Übersetzungsvorlagen und kompilierte `.mo`-Kataloge          |
-| `wix/`           | WiX-Installer                                                |
 
 ## Lizenz
 
