@@ -1,13 +1,19 @@
 #![windows_subsystem = "windows"]
 mod torrent;
 
-use std::fs::File;
-use std::io::{Read, Write};
+use std::fs::{File, OpenOptions};
+use std::io::{Read, Seek, SeekFrom, Write};
+use std::sync::OnceLock;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::thread;
+use std::time::Duration;
 
 use wxdragon::prelude::*;
 use wxdragon::translations::translate;
 use wxdragon::translations::{Locale, Translations, add_catalog_lookup_path_prefix};
+
+const CHUNKS: u64 = 8;
+const MIN_CHUNKED_SIZE: u64 = 4 * 1024 * 1024;
 
 #[derive(Clone, Copy)]
 struct Ui {
@@ -155,6 +161,119 @@ fn file_name_from_url(url: &str) -> String {
 }
 
 fn download(url: &str, path: &str, on_progress: impl Fn(u64, Option<u64>)) -> Result<u64, String> {
+    match probe_range_support(url) {
+        Some(total) if total >= MIN_CHUNKED_SIZE => {
+            download_chunked(url, path, total, on_progress)
+        }
+        _ => download_single(url, path, on_progress),
+    }
+}
+
+/// Returns the file size if the server answers a range request with 206.
+fn probe_range_support(url: &str) -> Option<u64> {
+    let response = ureq::get(url)
+        .header("Range", "bytes=0-0")
+        .header("Accept-Encoding", "identity")
+        .call()
+        .ok()?;
+    if response.status() != 206 {
+        return None;
+    }
+    let range = response.headers().get("content-range")?.to_str().ok()?;
+    range.rsplit('/').next()?.parse().ok()
+}
+
+fn download_chunked(
+    url: &str,
+    path: &str,
+    total: u64,
+    on_progress: impl Fn(u64, Option<u64>),
+) -> Result<u64, String> {
+    let file = File::create(path).map_err(|e| e.to_string())?;
+    file.set_len(total).map_err(|e| e.to_string())?;
+    drop(file);
+
+    let done = AtomicU64::new(0);
+    let error = OnceLock::new();
+    thread::scope(|s| {
+        let workers: Vec<_> = chunk_ranges(total, CHUNKS)
+            .into_iter()
+            .map(|(start, end)| {
+                let (done, error) = (&done, &error);
+                s.spawn(move || {
+                    if let Err(e) = download_range(url, path, start, end, done, error) {
+                        let _ = error.set(e);
+                    }
+                })
+            })
+            .collect();
+        while !workers.iter().all(|w| w.is_finished()) {
+            on_progress(done.load(Ordering::Relaxed), Some(total));
+            thread::sleep(Duration::from_millis(200));
+        }
+    });
+    match error.into_inner() {
+        Some(e) => Err(e),
+        None => Ok(total),
+    }
+}
+
+/// Splits `0..total` into `count` inclusive byte ranges.
+fn chunk_ranges(total: u64, count: u64) -> Vec<(u64, u64)> {
+    let size = total.div_ceil(count);
+    (0..count)
+        .map(|i| (i * size, ((i + 1) * size).min(total) - 1))
+        .filter(|(start, end)| start <= end)
+        .collect()
+}
+
+/// Downloads bytes `start..=end` into the file at the same offset.
+/// Stops early once another chunk has set `error`.
+fn download_range(
+    url: &str,
+    path: &str,
+    start: u64,
+    end: u64,
+    done: &AtomicU64,
+    error: &OnceLock<String>,
+) -> Result<(), String> {
+    let response = ureq::get(url)
+        .header("Range", &format!("bytes={start}-{end}"))
+        .header("Accept-Encoding", "identity")
+        .call()
+        .map_err(|e| e.to_string())?;
+    if response.status() != 206 {
+        return Err(format!("server ignored range request ({})", response.status()));
+    }
+    let mut reader = response.into_body().into_reader();
+    let mut file = OpenOptions::new()
+        .write(true)
+        .open(path)
+        .map_err(|e| e.to_string())?;
+    file.seek(SeekFrom::Start(start)).map_err(|e| e.to_string())?;
+
+    let mut buf = vec![0u8; 64 * 1024];
+    let mut written = 0u64;
+    while error.get().is_none() {
+        let n = reader.read(&mut buf).map_err(|e| e.to_string())?;
+        if n == 0 {
+            break;
+        }
+        file.write_all(&buf[..n]).map_err(|e| e.to_string())?;
+        written += n as u64;
+        done.fetch_add(n as u64, Ordering::Relaxed);
+    }
+    if error.get().is_none() && written != end - start + 1 {
+        return Err("connection closed before chunk was complete".to_string());
+    }
+    Ok(())
+}
+
+fn download_single(
+    url: &str,
+    path: &str,
+    on_progress: impl Fn(u64, Option<u64>),
+) -> Result<u64, String> {
     let response = ureq::get(url).call().map_err(|e| e.to_string())?;
     let total = response.body().content_length();
     let mut reader = response.into_body().into_reader();
