@@ -1,12 +1,13 @@
 #![windows_subsystem = "windows"]
 mod torrent;
 
+use std::cell::Cell;
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::sync::OnceLock;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use wxdragon::prelude::*;
 use wxdragon::translations::translate;
@@ -108,7 +109,7 @@ fn start_http_download(frame: &Frame, ui: Ui, url: String) {
     };
     start_download(ui);
     thread::spawn(move || {
-        let result = download(&url, &path, |done, total| report_progress(ui, done, total));
+        let result = download(&url, &path, progress_reporter(ui));
         report_finished(ui, result);
     });
 }
@@ -119,7 +120,7 @@ fn start_torrent_download(frame: &Frame, ui: Ui, url: String) {
     };
     start_download(ui);
     thread::spawn(move || {
-        let result = torrent::download(&url, &dir, |done, total| report_progress(ui, done, total));
+        let result = torrent::download(&url, &dir, progress_reporter(ui));
         report_finished(ui, result);
     });
 }
@@ -162,9 +163,7 @@ fn file_name_from_url(url: &str) -> String {
 
 fn download(url: &str, path: &str, on_progress: impl Fn(u64, Option<u64>)) -> Result<u64, String> {
     match probe_range_support(url) {
-        Some(total) if total >= MIN_CHUNKED_SIZE => {
-            download_chunked(url, path, total, on_progress)
-        }
+        Some(total) if total >= MIN_CHUNKED_SIZE => download_chunked(url, path, total, on_progress),
         _ => download_single(url, path, on_progress),
     }
 }
@@ -243,14 +242,18 @@ fn download_range(
         .call()
         .map_err(|e| e.to_string())?;
     if response.status() != 206 {
-        return Err(format!("server ignored range request ({})", response.status()));
+        return Err(format!(
+            "server ignored range request ({})",
+            response.status()
+        ));
     }
     let mut reader = response.into_body().into_reader();
     let mut file = OpenOptions::new()
         .write(true)
         .open(path)
         .map_err(|e| e.to_string())?;
-    file.seek(SeekFrom::Start(start)).map_err(|e| e.to_string())?;
+    file.seek(SeekFrom::Start(start))
+        .map_err(|e| e.to_string())?;
 
     let mut buf = vec![0u8; 64 * 1024];
     let mut written = 0u64;
@@ -300,14 +303,36 @@ fn copy_with_progress(
     }
 }
 
-fn report_progress(ui: Ui, done: u64, total: Option<u64>) {
+/// Returns an `on_progress` callback that measures the speed over the
+/// last second and updates the UI once per measurement.
+fn progress_reporter(ui: Ui) -> impl Fn(u64, Option<u64>) {
+    let last = Cell::new((Instant::now(), 0u64));
+    move |done, total| {
+        let (since, done_then) = last.get();
+        let elapsed = since.elapsed().as_secs_f64();
+        if elapsed < 1.0 {
+            return;
+        }
+        let speed = done.saturating_sub(done_then) as f64 / elapsed;
+        last.set((Instant::now(), done));
+        report_progress(ui, done, total, speed);
+    }
+}
+
+fn report_progress(ui: Ui, done: u64, total: Option<u64>, speed: f64) {
+    let speed = format_speed(speed);
     wxdragon::call_after(Box::new(move || match total {
         Some(t) if t > 0 => {
             ui.gauge.set_value((done * 100 / t) as i32);
-            ui.status
-                .set_label(&format!("{} / {}", format_size(done), format_size(t)));
+            ui.status.set_label(&format!(
+                "{} / {} ({speed})",
+                format_size(done),
+                format_size(t)
+            ));
         }
-        _ => ui.status.set_label(&format_size(done)),
+        _ => ui
+            .status
+            .set_label(&format!("{} ({speed})", format_size(done))),
     }));
 }
 
@@ -332,4 +357,9 @@ fn report_finished(ui: Ui, result: Result<u64, String>) {
 fn format_size(bytes: u64) -> String {
     let mb = bytes as f64 / 1024.0 / 1024.0;
     format!("{mb:.2} MB")
+}
+
+fn format_speed(bytes_per_sec: f64) -> String {
+    let mb = bytes_per_sec / 1024.0 / 1024.0;
+    format!("{mb:.2} MB/s")
 }
